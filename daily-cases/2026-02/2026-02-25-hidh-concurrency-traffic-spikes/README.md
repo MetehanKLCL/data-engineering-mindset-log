@@ -124,12 +124,13 @@ To handle duplicate messages introduced by at-least-once delivery, I implemented
 ### Schema Design
 
 ```sql
+-- 1. Schema Design: The combination of Device + Time + Drug must be unique.
 CREATE TABLE dispensing_logs (
     device_id VARCHAR(50),
     event_timestamp TIMESTAMP,
     drug_id VARCHAR(50),
     status VARCHAR(20),
-    PRIMARY KEY (device_id, event_timestamp, drug_id)
+    PRIMARY KEY (device_id, event_timestamp, drug_id) -- <--- The Guard Rail
 );
 -- 2. Idempotent Write Operation
 INSERT INTO dispensing_logs (device_id, event_timestamp, drug_id, status)
@@ -138,4 +139,36 @@ ON CONFLICT (device_id, event_timestamp, drug_id)
 DO NOTHING; 
 -- If SQS sends this message again, the DB will silently ignore it.
 -- Result: Data is consistent, even with a "messy" Queue.
-'''
+```
+
+## 6. Failure Scenarios & Mitigations
+
+| Scenario        | Impact                                   | Mitigation Strategy                                                                 |
+|-----------------|-------------------------------------------|--------------------------------------------------------------------------------------|
+| Queue Flooding  | SQS fills up with millions of messages.   | SQS can store messages for up to **14 days**. We can spin up more workers using **auto-scaling** to drain the queue faster. |
+| Duplicate Data  | SQS sends the same log more than once.    | **Idempotent SQL** using a composite primary key and `ON CONFLICT DO NOTHING` prevents double counting. |
+| Worker Crash    | The worker process crashes mid-processing.| **SQS Visibility Timeout** ensures the message becomes visible again after X seconds and is retried by another worker. |
+
+---
+
+## 7. Real-World Application
+
+I applied this architectural pattern to my **Smart Drug Dispenser** capstone project.
+
+Initially, I considered using an **SQS FIFO queue** to simplify the logic and avoid duplicate messages. However, after analyzing the trade-offs, I realized that FIFO queues introduce:
+
+- Lower throughput limits  
+- Higher operational costs  
+
+Given that strict ordering was **not a business requirement** for log ingestion, I switched to an **SQS Standard Queue**.
+
+To compensate for the possibility of duplicate message delivery, I intentionally shifted complexity to the **database layer** by implementing **idempotent writes** using:
+
+- A composite primary key  
+- `ON CONFLICT DO NOTHING` semantics  
+
+This decision resulted in a system that is:
+
+- **Highly scalable during traffic spikes**
+- **Cost-efficient** (≈ `$0.40/month` for SQS usage vs. ≈ `$1000/month` for a larger database instance)
+- **Resilient to failures** without over-provisioning infrastructure
