@@ -75,3 +75,12 @@ def process_event(event):
     pipe.incr(key)
     pipe.expire(key, 60) # Auto-reset after 1 minute
     pipe.execute()
+```
+
+## 6. Failure Scenarios & Mitigations
+
+| Scenario | Impact | Mitigation Strategy |
+| :--- | :--- | :--- |
+| **Redis Goes Down** | Circuit breaker fails (fail-open or fail-closed). | Wrap Redis calls in `try-catch`. If Redis fails, log the error but allow processing (**Fail-Open**) to avoid stopping business, or block (**Fail-Closed**) if cost risk is extreme. |
+| **SQS Fills Up** | Storage cost increases slightly. | Set a `retention period` (e.g., 1 day) and configure a **Dead Letter Queue (DLQ)** for unprocessable messages. |
+| **False Positive** | Valid heavy traffic is blocked. | Tune the threshold (e.g., increase limit from 10 to 50) based on real-world usage patterns observed in CloudWatch. |
