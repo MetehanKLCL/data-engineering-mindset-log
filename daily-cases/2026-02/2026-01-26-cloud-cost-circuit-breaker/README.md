@@ -84,3 +84,8 @@ def process_event(event):
 | **Redis Goes Down** | Circuit breaker fails (fail-open or fail-closed). | Wrap Redis calls in `try-catch`. If Redis fails, log the error but allow processing (**Fail-Open**) to avoid stopping business, or block (**Fail-Closed**) if cost risk is extreme. |
 | **SQS Fills Up** | Storage cost increases slightly. | Set a `retention period` (e.g., 1 day) and configure a **Dead Letter Queue (DLQ)** for unprocessable messages. |
 | **False Positive** | Valid heavy traffic is blocked. | Tune the threshold (e.g., increase limit from 10 to 50) based on real-world usage patterns observed in CloudWatch. |
+
+## 7. Real-World Application
+I learned that **Serverless scales wallet-draining errors just as well as it scales features.**
+
+Implementing "Cost Guardrails" like **Concurrency Limits** and "Logic Guardrails" like **Circuit Breakers** is mandatory for any event-driven system I design moving forward.
