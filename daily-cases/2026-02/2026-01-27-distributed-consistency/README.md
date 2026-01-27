@@ -57,6 +57,7 @@ LEFT JOIN Internal_Orders o ON b.payment_ref = o.payment_ref
 WHERE o.order_id IS NULL;
 
 -- Action: Push these results to a "Refund_Queue" or Alert the Support Team.
+```
 
 ## 5. Key Learnings
 
